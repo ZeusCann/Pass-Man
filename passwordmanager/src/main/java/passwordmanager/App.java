@@ -23,6 +23,8 @@ import javafx.scene.paint.Color;
  */
 public class App extends Application {
 
+    private PasswordManager passwordManager = new PasswordManager();
+
     @Override
     public void start(Stage primaryStage) {
        primaryStage.setTitle("Password Manager");
@@ -71,8 +73,11 @@ public class App extends Application {
                     actiontarget.setFill(Color.RED);
                     actiontarget.setText("Please fill out all fields.");
                 } else {
+                    PasswordEntry entry = new PasswordEntry(serviceNameField.getText(), usernameField.getText(), passwordBox.getText());
+                    passwordManager.addEntry(entry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Added!");
+                    System.out.println("Current Entry: \n" + passwordManager.getEntries());
                 }
         });
         */
@@ -85,8 +90,11 @@ public class App extends Application {
                     actiontarget.setFill(Color.RED);
                     actiontarget.setText("Please fill out all fields.");
                 } else {
+                    PasswordEntry entry = new PasswordEntry(serviceNameField.getText(), usernameField.getText(), passwordBox.getText());
+                    passwordManager.addEntry(entry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Added!");
+                    System.out.println("Current Entry: \n" + passwordManager.getEntries());
                 }
             }
         });
