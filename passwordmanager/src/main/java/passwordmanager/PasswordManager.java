@@ -17,5 +17,9 @@ public class PasswordManager {
     public ArrayList<PasswordEntry> getEntries() {
         return entries;
     }
-    
+
+    public boolean removeEntry(PasswordEntry entry) {
+        return entries.remove(entry);
+    }
+
 }

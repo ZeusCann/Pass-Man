@@ -1,5 +1,7 @@
 package passwordmanager;
 
+//import javafx.beans.value.ChangeListener;
+
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
@@ -17,6 +19,7 @@ import javafx.scene.control.Button;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.paint.Color;
+import javafx.scene.control.ListView;
 
 /**
  * JavaFX App
@@ -58,6 +61,12 @@ public class App extends Application {
         PasswordField passwordBox = new PasswordField();
         grid.add(passwordBox, 1, 3);
 
+        Button deleteBtn = new Button("Delete Entry");
+        HBox hbDeleteBtn = new HBox(10);
+        hbDeleteBtn.setAlignment(Pos.BOTTOM_LEFT);
+        hbDeleteBtn.getChildren().add(deleteBtn);
+        grid.add(hbDeleteBtn, 0, 4);
+
         Button btn = new Button("Add Entry");
         HBox hbBtn = new HBox(10);
         hbBtn.setAlignment(Pos.BOTTOM_RIGHT);
@@ -66,6 +75,43 @@ public class App extends Application {
 
         final Text actiontarget = new Text();
         grid.add(actiontarget, 1, 6);
+
+        ListView<PasswordEntry> entryListView = new ListView<>();
+        grid.add(entryListView, 0, 7, 2, 1);
+        
+        deleteBtn.setOnAction(event -> {
+            PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
+            if (selectedEntry != null) {
+                System.out.println("Deleting entry: " + selectedEntry.toString());
+                boolean removed = passwordManager.removeEntry(selectedEntry);
+                if (removed) {
+                    entryListView.getItems().remove(selectedEntry);
+                    actiontarget.setFill(Color.BLUE);
+                    actiontarget.setText("Entry Deleted!");
+                    System.out.println("Current Entries: \n" + passwordManager.getEntries());
+                } 
+                // The below else block is for debugging purposes. If bugs arrise from UI and PasswordManager failing to sync.
+                /*else {
+                    actiontarget.setFill(Color.RED);
+                    actiontarget.setText("Failed to delete entry.");
+                }*/
+            } else {
+                actiontarget.setFill(Color.RED);
+                actiontarget.setText("Please select an entry to delete.");
+            }
+        });
+
+        /*entryListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<PasswordEntry>() {
+            @Override
+            public void changed(javafx.beans.value.ObservableValue<? extends PasswordEntry> observable, PasswordEntry oldValue, PasswordEntry newValue) {
+                if (newValue != null) {
+                    actiontarget.setFill(Color.BLACK);
+                    actiontarget.setText("Selected Entry: \n" + newValue.toString() + "\nPassword: " + newValue.getPassword());
+                }
+            }
+            
+        } );
+        */
 
         /*Event handler for the button, can be rewritten as a lambda expression as s:
           btn.setOnAction(event -> {
@@ -92,9 +138,16 @@ public class App extends Application {
                 } else {
                     PasswordEntry entry = new PasswordEntry(serviceNameField.getText(), usernameField.getText(), passwordBox.getText());
                     passwordManager.addEntry(entry);
+                    entryListView.getItems().add(entry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Added!");
-                    System.out.println("Current Entry: \n" + passwordManager.getEntries());
+                    System.out.println("Current Entries: \n" + passwordManager.getEntries());
+
+                    serviceNameField.clear();
+                    usernameField.clear();
+                    passwordBox.clear();
+
+
                 }
             }
         });
