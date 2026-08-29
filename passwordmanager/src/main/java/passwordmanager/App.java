@@ -28,6 +28,9 @@ public class App extends Application {
 
     private PasswordManager passwordManager = new PasswordManager();
 
+    private PasswordEntry viewedEntry;
+    private boolean passwordVisible = false;
+
     @Override
     public void start(Stage primaryStage) {
        primaryStage.setTitle("Password Manager");
@@ -67,37 +70,128 @@ public class App extends Application {
         hbDeleteBtn.getChildren().add(deleteBtn);
         grid.add(hbDeleteBtn, 0, 4);
 
-        Button btn = new Button("Add Entry");
-        HBox hbBtn = new HBox(10);
-        hbBtn.setAlignment(Pos.BOTTOM_RIGHT);
-        hbBtn.getChildren().add(btn);
-        grid.add(hbBtn, 1, 4);
+        Button viewBtn = new Button("View Entry");
+        HBox hbViewBtn = new HBox(10);
+        hbViewBtn.setAlignment(Pos.BOTTOM_LEFT);
+        hbViewBtn.getChildren().add(viewBtn);
+        grid.add(hbViewBtn, 0, 5);
+
+        Button showPasswordBtn = new Button("Show Password");
+        HBox hbShowPasswordBtn = new HBox(10);
+        hbShowPasswordBtn.setAlignment(Pos.BOTTOM_RIGHT);
+        hbShowPasswordBtn.getChildren().add(showPasswordBtn);
+        grid.add(hbShowPasswordBtn, 1, 5);
+
+
+        Button addEntryBtn = new Button("Add Entry");
+        HBox hbAddEntryBtn = new HBox(10);
+        hbAddEntryBtn.setAlignment(Pos.BOTTOM_RIGHT);
+        hbAddEntryBtn.getChildren().add(addEntryBtn);
+        grid.add(hbAddEntryBtn, 1, 4);
 
         final Text actiontarget = new Text();
         grid.add(actiontarget, 1, 6);
 
+        // ListView to display entries
         ListView<PasswordEntry> entryListView = new ListView<>();
         grid.add(entryListView, 0, 7, 2, 1);
+
+        Text serviceDetail = new Text();
+        Text usernameDetail = new Text();
+        Text passwordDetail = new Text();
+
+        grid.add(serviceDetail, 0, 8, 2, 1);
+        grid.add(usernameDetail, 0, 9, 2, 1);
+        grid.add(passwordDetail, 0, 10, 2, 1);
         
         deleteBtn.setOnAction(event -> {
             PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
             if (selectedEntry != null) {
                 System.out.println("Deleting entry: " + selectedEntry.toString());
                 boolean removed = passwordManager.removeEntry(selectedEntry);
+
                 if (removed) {
                     entryListView.getItems().remove(selectedEntry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Deleted!");
                     System.out.println("Current Entries: \n" + passwordManager.getEntries());
+
+                    // Review the two lines of code tomorrow/later today to make sure its correct.
+                    if (selectedEntry == viewedEntry) {
+                        viewedEntry = null;
+                        showPasswordBtn.setText("Show Password");
+                        serviceDetail.setText("");
+                        usernameDetail.setText("");
+                        passwordDetail.setText("");
+
+                    }
                 } 
                 // The below else block is for debugging purposes. If bugs arrise from UI and PasswordManager failing to sync.
                 /*else {
                     actiontarget.setFill(Color.RED);
                     actiontarget.setText("Failed to delete entry.");
                 }*/
-            } else {
+            }
+             else {
                 actiontarget.setFill(Color.RED);
                 actiontarget.setText("Please select an entry to delete.");
+            }
+        });
+
+        viewBtn.setOnAction(event -> {
+            PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
+
+            if (selectedEntry != null) {
+                viewedEntry = selectedEntry;
+                // Lines 137 & 138 revert the show/hide password toggle button back to the "Show Password" position when a new entry is being viewed.
+                passwordVisible = false;
+                showPasswordBtn.setText("Show Password");
+
+                serviceDetail.setText("Service Name: " + selectedEntry.getServiceName());
+                usernameDetail.setText("Username: " + selectedEntry.getUsername());
+                passwordDetail.setText("Password: " + "********");
+                actiontarget.setText("");
+            }
+            else {
+                actiontarget.setFill(Color.RED);
+                actiontarget.setText("Please select an entry to view.");
+            }
+        });
+
+        showPasswordBtn.setOnAction(event -> {
+            PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
+            if (selectedEntry == null) {
+                actiontarget.setFill(Color.RED);
+                actiontarget.setText("Please select and view an entry to show password.");
+                }
+            
+            else if (selectedEntry == viewedEntry) {
+
+                actiontarget.setText("");
+
+                if (!passwordVisible) {
+                    passwordVisible = true;
+                    showPasswordBtn.setText("Hide Password");
+                    passwordDetail.setText("Password: " + selectedEntry.getPassword());
+                        
+                } else {
+                    passwordVisible = false;
+                    showPasswordBtn.setText("Show Password");
+                    passwordDetail.setText("Password: ********");
+                }
+            }
+            else {
+
+                viewedEntry = null;
+                passwordVisible = false;
+
+                showPasswordBtn.setText("Show Password");
+                serviceDetail.setText("");
+                usernameDetail.setText("");
+                passwordDetail.setText("");
+                
+                actiontarget.setFill(Color.RED);
+                actiontarget.setText("Please view the entry first to show the password.");
             }
         });
 
@@ -124,11 +218,15 @@ public class App extends Application {
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Added!");
                     System.out.println("Current Entry: \n" + passwordManager.getEntries());
+
+                    serviceNameField.clear();
+                    usernameField.clear();
+                    passwordBox.clear();
                 }
         });
         */
 
-        btn.setOnAction(new EventHandler<ActionEvent>() {
+        addEntryBtn.setOnAction(new EventHandler<ActionEvent>() {
 
             @Override
             public void handle(ActionEvent e) {
