@@ -20,6 +20,11 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.paint.Color;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
+import java.util.Optional;
 
 /**
  * JavaFX App
@@ -28,6 +33,7 @@ public class App extends Application {
 
     private PasswordManager passwordManager = new PasswordManager();
 
+    // Java assigns class instances like viewedEntry to null by default, so we don't have to explicitly state that its null.
     private PasswordEntry viewedEntry;
     private boolean passwordVisible = false;
 
@@ -89,6 +95,12 @@ public class App extends Application {
         hbAddEntryBtn.getChildren().add(addEntryBtn);
         grid.add(hbAddEntryBtn, 1, 4);
 
+        Button editEntryBtn = new Button("Edit Entry");
+        HBox hbEditEntryBtn = new HBox(10);
+        hbEditEntryBtn.setAlignment(Pos.BOTTOM_LEFT);
+        hbEditEntryBtn.getChildren().add(editEntryBtn);
+        grid.add(hbEditEntryBtn, 0, 6);
+
         final Text actiontarget = new Text();
         grid.add(actiontarget, 1, 6);
 
@@ -103,6 +115,22 @@ public class App extends Application {
         grid.add(serviceDetail, 0, 8, 2, 1);
         grid.add(usernameDetail, 0, 9, 2, 1);
         grid.add(passwordDetail, 0, 10, 2, 1);
+
+        entryListView.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+            actiontarget.setText("");
+
+            /* Stopping point...tweaked line 110 to add viewedEntry != null &&..
+               so it doesn't run the reset block out the gate when the app starts.*/
+            if (viewedEntry != null && newValue != viewedEntry) {
+                viewedEntry = null;
+                passwordVisible = false;
+
+                showPasswordBtn.setText("Show Password");
+                serviceDetail.setText("");
+                usernameDetail.setText("");
+                passwordDetail.setText("");
+            }
+        });
         
         deleteBtn.setOnAction(event -> {
             PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
@@ -158,6 +186,81 @@ public class App extends Application {
             }
         });
 
+        editEntryBtn.setOnAction(event -> {
+            PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
+            if (selectedEntry != null) {
+                actiontarget.setText("");
+
+                GridPane editGrid = new GridPane();
+                TextField editServiceField = new TextField();
+                TextField editUsernameField = new TextField();
+                PasswordField editPasswordField = new PasswordField();
+                
+                editGrid.add(new Label("Service Name: "), 0, 0);
+                editGrid.add(editServiceField, 1, 0);
+
+                editGrid.add(new Label("Username: "), 0, 1);
+                editGrid.add(editUsernameField, 1, 1);
+
+                editGrid.add(new Label("Password: "), 0, 2);
+                editGrid.add(editPasswordField, 1, 2);
+
+                Text actiontargetdialog = new Text();
+                editGrid.add(actiontargetdialog, 1, 3);
+
+                editServiceField.setText(selectedEntry.getServiceName());
+                editUsernameField.setText(selectedEntry.getUsername());
+                editPasswordField.setText(selectedEntry.getPassword());
+
+
+                ButtonType saveButtonType = new ButtonType("Save", ButtonData.OTHER);
+                Dialog<ButtonType> dialog = new Dialog<>();
+                dialog.setTitle("Edit Entry");
+                dialog.getDialogPane().setContent(editGrid);
+                dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+                
+                Button saveButton = (Button) dialog.getDialogPane().lookupButton(saveButtonType);
+                saveButton.addEventFilter(ActionEvent.ACTION, actionEvt -> {
+                    if (editServiceField.getText().isBlank() || editUsernameField.getText().isBlank() || editPasswordField.getText().isBlank()) {
+                        actiontargetdialog.setFill(Color.RED);
+                        actiontargetdialog.setText("Please fill out all fields.");
+                        actionEvt.consume(); // Prevents the dialog from closing
+                    }
+                });
+                // result.isPresent: Did the dialog actually give me a result?
+                // result.get(): Give me the ButtonType stored inside Optional.
+                Optional<ButtonType> result = dialog.showAndWait();
+                if (result.isPresent() && result.get() == saveButtonType) {
+
+                        selectedEntry.setServiceName(editServiceField.getText());
+                        selectedEntry.setUsername(editUsernameField.getText());
+                        selectedEntry.setPassword(editPasswordField.getText());
+
+                    if (selectedEntry == viewedEntry) {
+                        serviceDetail.setText("Service Name: " + selectedEntry.getServiceName());
+                        usernameDetail.setText("Username: " + selectedEntry.getUsername());
+                        passwordDetail.setText("Password: " + "********");
+
+                        passwordVisible = false;
+                        showPasswordBtn.setText("Show Password");
+                        actiontarget.setFill(Color.BLUE);
+                        actiontarget.setText("Entry Updated!");
+                        entryListView.refresh();
+
+                    }
+                    passwordVisible = false;
+                    showPasswordBtn.setText("Show Password");
+                    actiontarget.setFill(Color.BLUE);
+                    actiontarget.setText("Entry Updated!");
+                    entryListView.refresh();
+                }
+
+            } else {
+                actiontarget.setFill(Color.RED);
+                actiontarget.setText("Please select an entry to edit.");
+            }
+        });
+
         showPasswordBtn.setOnAction(event -> {
             PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
             if (selectedEntry == null) {
@@ -189,7 +292,7 @@ public class App extends Application {
                 serviceDetail.setText("");
                 usernameDetail.setText("");
                 passwordDetail.setText("");
-                
+
                 actiontarget.setFill(Color.RED);
                 actiontarget.setText("Please view the entry first to show the password.");
             }
@@ -208,7 +311,7 @@ public class App extends Application {
         */
 
         /*Event handler for the button, can be rewritten as a lambda expression as s:
-          btn.setOnAction(event -> {
+          addEntryBtn.setOnAction(event -> {
                 if (serviceNameField.getText().isBlank() || usernameField.getText().isBlank() || passwordBox.getText().isBlank()) {
                     actiontarget.setFill(Color.RED);
                     actiontarget.setText("Please fill out all fields.");
@@ -250,7 +353,7 @@ public class App extends Application {
             }
         });
 
-        //Line 84 is for debugging purposes only. Its used to see the grid layout of the gui elements.
+        //Line 254 is for debugging purposes only. Its used to see the grid layout of the gui elements.
         //grid.setGridLinesVisible(true);
 
         Scene scene = new Scene(grid, 600, 475);
