@@ -25,6 +25,7 @@ import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import java.util.Optional;
+import javafx.collections.transformation.FilteredList;
 
 /**
  * JavaFX App
@@ -106,7 +107,7 @@ public class App extends Application {
 
         // ListView to display entries
         ListView<PasswordEntry> entryListView = new ListView<>();
-        grid.add(entryListView, 0, 7, 2, 1);
+        grid.add(entryListView, 0, 8, 2, 1);
 
         Text serviceDetail = new Text();
         Text usernameDetail = new Text();
@@ -115,6 +116,10 @@ public class App extends Application {
         grid.add(serviceDetail, 0, 8, 2, 1);
         grid.add(usernameDetail, 0, 9, 2, 1);
         grid.add(passwordDetail, 0, 10, 2, 1);
+
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by Service Name or Username...");
+        grid.add(searchField, 0, 7, 2, 1);
 
         entryListView.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
             actiontarget.setText("");
@@ -131,6 +136,31 @@ public class App extends Application {
                 passwordDetail.setText("");
             }
         });
+
+        /*searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            entryListView.getItems().clear();
+            for (PasswordEntry entry : passwordManager.getEntries()) {
+                if (entry.getServiceName().toLowerCase().contains(newValue.toLowerCase()) ||
+                    entry.getUsername().toLowerCase().contains(newValue.toLowerCase())) {
+                    entryListView.getItems().add(entry);
+                }
+            }
+        });*/
+
+        // FilteredList and entryListView.setItems() is taken out of searchField.textProperty() so that it doesn't create a new FilteredList object with every keystroke.
+        FilteredList<PasswordEntry> filteredEntries = new FilteredList<>(passwordManager.getEntries(), entry -> true);
+        entryListView.setItems(filteredEntries);
+
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            String searchText = newValue.toLowerCase();
+
+            filteredEntries.setPredicate(entry -> {
+                if (searchText.isBlank()) {
+                    return true;
+                }
+                return entry.getServiceName().toLowerCase().contains(searchText) || entry.getUsername().toLowerCase().contains(searchText);
+            });
+        });
         
         deleteBtn.setOnAction(event -> {
             PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
@@ -139,7 +169,8 @@ public class App extends Application {
                 boolean removed = passwordManager.removeEntry(selectedEntry);
 
                 if (removed) {
-                    entryListView.getItems().remove(selectedEntry);
+                    //entryListView.getItems().remove(selectedEntry);
+                    passwordManager.removeEntry(selectedEntry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Deleted!");
                     System.out.println("Current Entries: \n" + passwordManager.getEntries());
@@ -339,7 +370,7 @@ public class App extends Application {
                 } else {
                     PasswordEntry entry = new PasswordEntry(serviceNameField.getText(), usernameField.getText(), passwordBox.getText());
                     passwordManager.addEntry(entry);
-                    entryListView.getItems().add(entry);
+                    //entryListView.getItems().add(entry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Added!");
                     System.out.println("Current Entries: \n" + passwordManager.getEntries());
