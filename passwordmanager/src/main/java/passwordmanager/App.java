@@ -17,15 +17,17 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Button;
 import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
+//import javafx.event.EventHandler;
 import javafx.scene.paint.Color;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.Dialog;
-import javafx.scene.control.DialogPane;
+//import javafx.scene.control.DialogPane;
 import java.util.Optional;
 import javafx.collections.transformation.FilteredList;
+import java.security.SecureRandom;
 
 /**
  * JavaFX App
@@ -37,6 +39,39 @@ public class App extends Application {
     // Java assigns class instances like viewedEntry to null by default, so we don't have to explicitly state that its null.
     private PasswordEntry viewedEntry;
     private boolean passwordVisible = false;
+
+    private static final String LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
+    private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String NUMBERS = "0123456789";
+    private static final String SYMBOLS = "!@#$%^&*()-_=+[]{}|;:'\",.<>?/`~";
+
+    private final SecureRandom random = new SecureRandom();
+
+    String allCharacters = LOWERCASE + UPPERCASE + NUMBERS + SYMBOLS;
+
+    private String generateRandomPassword(int length, String availableCharacters) {
+
+        StringBuilder password = new StringBuilder();
+
+        for (int i = 0; i < length; i++) {
+            int randomIndex = random.nextInt(availableCharacters.length());
+            password.append(availableCharacters.charAt(randomIndex));
+        }
+        return password.toString();
+    }
+
+    // Create the random password generator method below...
+
+    private void updateSearchFilter(TextField searchField, FilteredList<PasswordEntry> filteredEntries) {
+        String searchText = searchField.getText().toLowerCase();
+
+            filteredEntries.setPredicate(entry -> {
+                if (searchText.isBlank()) {
+                    return true;
+                }
+                return entry.getServiceName().toLowerCase().contains(searchText) || entry.getUsername().toLowerCase().contains(searchText);
+            });
+    }
 
     @Override
     public void start(Stage primaryStage) {
@@ -102,30 +137,64 @@ public class App extends Application {
         hbEditEntryBtn.getChildren().add(editEntryBtn);
         grid.add(hbEditEntryBtn, 0, 6);
 
+        Label passwordLengthLabel = new Label("Password Length:");
+        grid.add(passwordLengthLabel, 0, 14);
+        TextField passwordLengthField = new TextField("16");
+        passwordLengthField.setMaxWidth(35);
+        grid.add(passwordLengthField, 1, 14);
+
+        CheckBox lowercaseCheckBox = new CheckBox("Lowercase");
+        lowercaseCheckBox.setSelected(true);
+        grid.add(lowercaseCheckBox, 0, 17);
+        CheckBox uppercaseCheckBox = new CheckBox("Uppercase");
+        uppercaseCheckBox.setSelected(true);
+        grid.add(uppercaseCheckBox, 0, 18);
+        CheckBox numbersCheckBox = new CheckBox("Numbers");
+        numbersCheckBox.setSelected(true);
+        grid.add(numbersCheckBox, 1, 17);
+        CheckBox symbolsCheckBox = new CheckBox("Symbols");
+        symbolsCheckBox.setSelected(true);
+        grid.add(symbolsCheckBox, 1, 18);
+
+        Button generatePasswordBtn = new Button("Generate Password");
+        HBox hbGeneratePasswordBtn = new HBox(10);
+        hbGeneratePasswordBtn.setAlignment(Pos.BOTTOM_LEFT);
+        hbGeneratePasswordBtn.getChildren().add(generatePasswordBtn);
+        grid.add(hbGeneratePasswordBtn, 0, 15);
+
+        TextField generatedPasswordText = new TextField();
+        grid.add(generatedPasswordText, 1, 15);
+
         final Text actiontarget = new Text();
         grid.add(actiontarget, 1, 6);
 
         // ListView to display entries
         ListView<PasswordEntry> entryListView = new ListView<>();
-        grid.add(entryListView, 0, 8, 2, 1);
+        grid.add(entryListView, 0, 8, 2, 2);
 
         Text serviceDetail = new Text();
         Text usernameDetail = new Text();
         Text passwordDetail = new Text();
 
-        grid.add(serviceDetail, 0, 8, 2, 1);
-        grid.add(usernameDetail, 0, 9, 2, 1);
-        grid.add(passwordDetail, 0, 10, 2, 1);
+        grid.add(serviceDetail, 0, 11, 2, 1);
+        grid.add(usernameDetail, 0, 12, 2, 1);
+        grid.add(passwordDetail, 0, 13, 2, 1);
 
         TextField searchField = new TextField();
         searchField.setPromptText("Search by Service Name or Username...");
         grid.add(searchField, 0, 7, 2, 1);
 
+        // FilteredList and entryListView.setItems() is taken out of searchField.textProperty() so that it doesn't create a new FilteredList object with every keystroke.
+        FilteredList<PasswordEntry> filteredEntries = new FilteredList<>(passwordManager.getEntries(), entry -> true);
+        entryListView.setItems(filteredEntries);
+
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            updateSearchFilter(searchField, filteredEntries);
+        });
+
         entryListView.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
             actiontarget.setText("");
 
-            /* Stopping point...tweaked line 110 to add viewedEntry != null &&..
-               so it doesn't run the reset block out the gate when the app starts.*/
             if (viewedEntry != null && newValue != viewedEntry) {
                 viewedEntry = null;
                 passwordVisible = false;
@@ -136,41 +205,13 @@ public class App extends Application {
                 passwordDetail.setText("");
             }
         });
-
-        /*searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            entryListView.getItems().clear();
-            for (PasswordEntry entry : passwordManager.getEntries()) {
-                if (entry.getServiceName().toLowerCase().contains(newValue.toLowerCase()) ||
-                    entry.getUsername().toLowerCase().contains(newValue.toLowerCase())) {
-                    entryListView.getItems().add(entry);
-                }
-            }
-        });*/
-
-        // FilteredList and entryListView.setItems() is taken out of searchField.textProperty() so that it doesn't create a new FilteredList object with every keystroke.
-        FilteredList<PasswordEntry> filteredEntries = new FilteredList<>(passwordManager.getEntries(), entry -> true);
-        entryListView.setItems(filteredEntries);
-
-        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            String searchText = newValue.toLowerCase();
-
-            filteredEntries.setPredicate(entry -> {
-                if (searchText.isBlank()) {
-                    return true;
-                }
-                return entry.getServiceName().toLowerCase().contains(searchText) || entry.getUsername().toLowerCase().contains(searchText);
-            });
-        });
         
         deleteBtn.setOnAction(event -> {
             PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
             if (selectedEntry != null) {
-                System.out.println("Deleting entry: " + selectedEntry.toString());
                 boolean removed = passwordManager.removeEntry(selectedEntry);
 
                 if (removed) {
-                    //entryListView.getItems().remove(selectedEntry);
-                    passwordManager.removeEntry(selectedEntry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Deleted!");
                     System.out.println("Current Entries: \n" + passwordManager.getEntries());
@@ -178,6 +219,7 @@ public class App extends Application {
                     // Review the two lines of code tomorrow/later today to make sure its correct.
                     if (selectedEntry == viewedEntry) {
                         viewedEntry = null;
+                        passwordVisible = false;
                         showPasswordBtn.setText("Show Password");
                         serviceDetail.setText("");
                         usernameDetail.setText("");
@@ -185,11 +227,6 @@ public class App extends Application {
 
                     }
                 } 
-                // The below else block is for debugging purposes. If bugs arrise from UI and PasswordManager failing to sync.
-                /*else {
-                    actiontarget.setFill(Color.RED);
-                    actiontarget.setText("Failed to delete entry.");
-                }*/
             }
              else {
                 actiontarget.setFill(Color.RED);
@@ -267,18 +304,8 @@ public class App extends Application {
                         selectedEntry.setUsername(editUsernameField.getText());
                         selectedEntry.setPassword(editPasswordField.getText());
 
-                    if (selectedEntry == viewedEntry) {
-                        serviceDetail.setText("Service Name: " + selectedEntry.getServiceName());
-                        usernameDetail.setText("Username: " + selectedEntry.getUsername());
-                        passwordDetail.setText("Password: " + "********");
-
-                        passwordVisible = false;
-                        showPasswordBtn.setText("Show Password");
-                        actiontarget.setFill(Color.BLUE);
-                        actiontarget.setText("Entry Updated!");
-                        entryListView.refresh();
-
-                    }
+                        updateSearchFilter(searchField, filteredEntries);
+                    
                     passwordVisible = false;
                     showPasswordBtn.setText("Show Password");
                     actiontarget.setFill(Color.BLUE);
@@ -329,19 +356,6 @@ public class App extends Application {
             }
         });
 
-        /*entryListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<PasswordEntry>() {
-            @Override
-            public void changed(javafx.beans.value.ObservableValue<? extends PasswordEntry> observable, PasswordEntry oldValue, PasswordEntry newValue) {
-                if (newValue != null) {
-                    actiontarget.setFill(Color.BLACK);
-                    actiontarget.setText("Selected Entry: \n" + newValue.toString() + "\nPassword: " + newValue.getPassword());
-                }
-            }
-            
-        } );
-        */
-
-        /*Event handler for the button, can be rewritten as a lambda expression as s:
           addEntryBtn.setOnAction(event -> {
                 if (serviceNameField.getText().isBlank() || usernameField.getText().isBlank() || passwordBox.getText().isBlank()) {
                     actiontarget.setFill(Color.RED);
@@ -358,38 +372,51 @@ public class App extends Application {
                     passwordBox.clear();
                 }
         });
-        */
 
-        addEntryBtn.setOnAction(new EventHandler<ActionEvent>() {
+        generatePasswordBtn.setOnAction(event -> {
 
-            @Override
-            public void handle(ActionEvent e) {
-                if (serviceNameField.getText().isBlank() || usernameField.getText().isBlank() || passwordBox.getText().isBlank()) {
+            StringBuilder availableCharacters = new StringBuilder();
+
+            if (lowercaseCheckBox.isSelected()) {
+                availableCharacters.append(LOWERCASE);
+            }
+            if (uppercaseCheckBox.isSelected()) {
+                availableCharacters.append(UPPERCASE);
+            }
+            if (numbersCheckBox.isSelected()) {
+                availableCharacters.append(NUMBERS);
+            }
+            if (symbolsCheckBox.isSelected()) {
+                availableCharacters.append(SYMBOLS);
+            }
+            if (availableCharacters.length() == 0) {
+                actiontarget.setFill(Color.RED);
+                actiontarget.setText("Please select at least one character type.");
+
+                return;
+            }
+
+            try {
+                int length = Integer.parseInt(passwordLengthField.getText().trim());
+                
+                if (length < 12 || length > 32) {
                     actiontarget.setFill(Color.RED);
-                    actiontarget.setText("Please fill out all fields.");
+                    actiontarget.setText("Please enter a valid number (12 - 32) for password length.");
                 } else {
-                    PasswordEntry entry = new PasswordEntry(serviceNameField.getText(), usernameField.getText(), passwordBox.getText());
-                    passwordManager.addEntry(entry);
-                    //entryListView.getItems().add(entry);
-                    actiontarget.setFill(Color.BLUE);
-                    actiontarget.setText("Entry Added!");
-                    System.out.println("Current Entries: \n" + passwordManager.getEntries());
-
-                    serviceNameField.clear();
-                    usernameField.clear();
-                    passwordBox.clear();
-
-
+                    actiontarget.setText("");
+                    String generatedPassword = generateRandomPassword(length, availableCharacters.toString());
+                    generatedPasswordText.setText(generatedPassword);
+                    System.out.println("Generated Password: " + generatedPasswordText.getText());
                 }
+                
+            } catch (NumberFormatException e) {
+                actiontarget.setFill(Color.RED);
+                actiontarget.setText("Invalid input. Enter a number 12 - 32.");
             }
         });
 
-        //Line 254 is for debugging purposes only. Its used to see the grid layout of the gui elements.
-        //grid.setGridLinesVisible(true);
-
-        Scene scene = new Scene(grid, 600, 475);
+        Scene scene = new Scene(grid, 600, 700);
         primaryStage.setScene(scene);
-
 
        primaryStage.show();
     }
