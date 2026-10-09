@@ -28,6 +28,9 @@ import javafx.scene.control.Dialog;
 import java.util.Optional;
 import javafx.collections.transformation.FilteredList;
 import java.security.SecureRandom;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.List;
 
 /**
  * JavaFX App
@@ -74,7 +77,14 @@ public class App extends Application {
     }
 
     @Override
-    public void start(Stage primaryStage) {
+        public void start(Stage primaryStage) {
+            DatabaseManager.createTable();
+
+            List<PasswordEntry> loadSavedEntries = DatabaseManager.loadEntries();
+            for (PasswordEntry entry : loadSavedEntries) {
+                passwordManager.addEntry(entry);
+            }
+    
        primaryStage.setTitle("Password Manager");
 
        GridPane grid = new GridPane();
@@ -363,6 +373,8 @@ public class App extends Application {
                 } else {
                     PasswordEntry entry = new PasswordEntry(serviceNameField.getText(), usernameField.getText(), passwordBox.getText());
                     passwordManager.addEntry(entry);
+                    // Insert the entry into the SQLite database using DatabaseManager
+                    DatabaseManager.insertEntry(entry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Added!");
                     System.out.println("Current Entry: \n" + passwordManager.getEntries());
