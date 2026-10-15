@@ -219,26 +219,33 @@ public class App extends Application {
         deleteBtn.setOnAction(event -> {
             PasswordEntry selectedEntry = entryListView.getSelectionModel().getSelectedItem();
             if (selectedEntry != null) {
-                boolean removed = passwordManager.removeEntry(selectedEntry);
+                boolean deletedEntry = DatabaseManager.deleteEntry(selectedEntry);
 
-                if (removed) {
-                    actiontarget.setFill(Color.BLUE);
-                    actiontarget.setText("Entry Deleted!");
-                    System.out.println("Current Entries: \n" + passwordManager.getEntries());
+                if (deletedEntry) {
+                    boolean removed = passwordManager.removeEntry(selectedEntry);
 
-                    // Review the two lines of code tomorrow/later today to make sure its correct.
-                    if (selectedEntry == viewedEntry) {
-                        viewedEntry = null;
-                        passwordVisible = false;
-                        showPasswordBtn.setText("Show Password");
-                        serviceDetail.setText("");
-                        usernameDetail.setText("");
-                        passwordDetail.setText("");
+                    if (removed) {
+                        actiontarget.setFill(Color.BLUE);
+                        actiontarget.setText("Entry Deleted!");
+                        System.out.println("Current Entries: \n" + passwordManager.getEntries());
 
-                    }
-                } 
-            }
-             else {
+                        if (selectedEntry == viewedEntry) {
+                            viewedEntry = null;
+                            passwordVisible = false;
+                            showPasswordBtn.setText("Show Password");
+                            serviceDetail.setText("");
+                            usernameDetail.setText("");
+                            passwordDetail.setText("");
+
+                        }
+                    } 
+                } else {
+                    actiontarget.setFill(Color.RED);
+                    actiontarget.setText("Failed to delete entry from database.");
+                }
+
+                
+            } else {
                 actiontarget.setFill(Color.RED);
                 actiontarget.setText("Please select an entry to delete.");
             }
@@ -309,18 +316,33 @@ public class App extends Application {
                 // result.get(): Give me the ButtonType stored inside Optional.
                 Optional<ButtonType> result = dialog.showAndWait();
                 if (result.isPresent() && result.get() == saveButtonType) {
+                        String oldServiceName = selectedEntry.getServiceName();
+                        String oldUsername = selectedEntry.getUsername();
+                        String oldPassword = selectedEntry.getPassword();
 
                         selectedEntry.setServiceName(editServiceField.getText());
                         selectedEntry.setUsername(editUsernameField.getText());
                         selectedEntry.setPassword(editPasswordField.getText());
 
-                        updateSearchFilter(searchField, filteredEntries);
-                    
-                    passwordVisible = false;
-                    showPasswordBtn.setText("Show Password");
-                    actiontarget.setFill(Color.BLUE);
-                    actiontarget.setText("Entry Updated!");
-                    entryListView.refresh();
+                        boolean updated = DatabaseManager.updateEntry(selectedEntry);
+
+                        if (updated) {
+                            updateSearchFilter(searchField, filteredEntries);
+
+                            passwordVisible = false;
+                            showPasswordBtn.setText("Show Password");
+                            actiontarget.setFill(Color.BLUE);
+                            actiontarget.setText("Entry Updated!");
+                            entryListView.refresh();
+
+                        } else {
+                            actiontarget.setFill(Color.RED);
+                            actiontarget.setText("Failed to update entry in database.");
+                            // Revert changes if database update fails
+                            selectedEntry.setServiceName(oldServiceName);
+                            selectedEntry.setUsername(oldUsername);
+                            selectedEntry.setPassword(oldPassword);
+                        }
                 }
 
             } else {
