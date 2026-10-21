@@ -33,26 +33,20 @@ public class DatabaseManager {
     }
 
     public static void insertEntry(PasswordEntry entry) {
-        System.out.println("insertEntry() was called");
         String sql = "INSERT INTO password_entries(service_name, username, password) VALUES (?, ?, ?);";
 
         try (Connection connection = getConnection();
             PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-
-                System.out.println("Database connection opened for INSERT");
  
                 statement.setString(1, entry.getServiceName());
                 statement.setString(2, entry.getUsername());
                 statement.setString(3, entry.getPassword());
-                int rowsInserted = statement.executeUpdate();
-                System.out.println("Rows inserted into database: " + rowsInserted);
-                //statement.executeUpdate();
+                statement.executeUpdate();
                 
                 try (ResultSet generatedKeys = statement.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
                         int generatedId = generatedKeys.getInt(1);
                         entry.setId(generatedId);
-                        System.out.println("Generated ID: " + entry.getId());
                     }
                 }
 
@@ -77,13 +71,11 @@ public class DatabaseManager {
                 String username = results.getString("username");
                 String password = results.getString("password");
                 entries.add(new PasswordEntry(id,serviceName, username, password));
-                System.out.println("Loaded entry ID: " + id + " - " + serviceName);
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        System.out.println("Entries loaded from database: " + entries.size());
         return entries;
     }
 
@@ -95,7 +87,6 @@ public class DatabaseManager {
 
                 statement.setInt(1, entry.getId());
                 int rowsDeleted = statement.executeUpdate();
-                System.out.println("Deleted rows: " + rowsDeleted);
                 return rowsDeleted > 0;
             } catch (SQLException e) {
                 System.out.println("DELETE failed.");
@@ -114,7 +105,6 @@ public class DatabaseManager {
                 statement.setString(3, entry.getPassword());
                 statement.setInt(4, entry.getId());
                 int rowsUpdated = statement.executeUpdate();
-                System.out.println("Updated rows: " + rowsUpdated);
                 return rowsUpdated > 0;
 
             } catch (SQLException e) {

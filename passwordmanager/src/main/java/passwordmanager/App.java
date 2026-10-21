@@ -26,6 +26,7 @@ import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.Dialog;
 //import javafx.scene.control.DialogPane;
 import java.util.Optional;
+
 import javafx.collections.transformation.FilteredList;
 import java.security.SecureRandom;
 import java.sql.Connection;
@@ -63,8 +64,6 @@ public class App extends Application {
         return password.toString();
     }
 
-    // Create the random password generator method below...
-
     private void updateSearchFilter(TextField searchField, FilteredList<PasswordEntry> filteredEntries) {
         String searchText = searchField.getText().toLowerCase();
 
@@ -84,7 +83,7 @@ public class App extends Application {
             for (PasswordEntry entry : loadSavedEntries) {
                 passwordManager.addEntry(entry);
             }
-    
+        
        primaryStage.setTitle("Password Manager");
 
        GridPane grid = new GridPane();
@@ -227,7 +226,6 @@ public class App extends Application {
                     if (removed) {
                         actiontarget.setFill(Color.BLUE);
                         actiontarget.setText("Entry Deleted!");
-                        System.out.println("Current Entries: \n" + passwordManager.getEntries());
 
                         if (selectedEntry == viewedEntry) {
                             viewedEntry = null;
@@ -399,7 +397,6 @@ public class App extends Application {
                     DatabaseManager.insertEntry(entry);
                     actiontarget.setFill(Color.BLUE);
                     actiontarget.setText("Entry Added!");
-                    System.out.println("Current Entry: \n" + passwordManager.getEntries());
 
                     serviceNameField.clear();
                     usernameField.clear();
@@ -440,7 +437,6 @@ public class App extends Application {
                     actiontarget.setText("");
                     String generatedPassword = generateRandomPassword(length, availableCharacters.toString());
                     generatedPasswordText.setText(generatedPassword);
-                    System.out.println("Generated Password: " + generatedPasswordText.getText());
                 }
                 
             } catch (NumberFormatException e) {
