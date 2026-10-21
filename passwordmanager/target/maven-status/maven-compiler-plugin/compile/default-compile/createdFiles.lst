@@ -1,0 +1,6 @@
+passwordmanager/EncryptionManager.class
+passwordmanager/PasswordManager.class
+passwordmanager/App.class
+module-info.class
+passwordmanager/DatabaseManager.class
+passwordmanager/PasswordEntry.class
