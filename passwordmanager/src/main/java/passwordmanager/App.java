@@ -15,6 +15,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.event.ActionEvent;
 //import javafx.event.EventHandler;
@@ -32,6 +33,11 @@ import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+import javax.crypto.SecretKey;
+import javax.crypto.AEADBadTagException;
+import java.security.GeneralSecurityException;
 
 /**
  * JavaFX App
@@ -39,6 +45,9 @@ import java.util.List;
 public class App extends Application {
 
     private PasswordManager passwordManager = new PasswordManager();
+
+    private EncryptionManager encryptionManager = new EncryptionManager();
+    private SecretKey vaultKey;
 
     // Java assigns class instances like viewedEntry to null by default, so we don't have to explicitly state that its null.
     private PasswordEntry viewedEntry;
@@ -75,14 +84,30 @@ public class App extends Application {
             });
     }
 
+    public void loadDecryptedEntries() throws SQLException, GeneralSecurityException {
+
+        List<EncryptedPasswordEntry> encryptedEntries = DatabaseManager.loadEntries();
+
+        // Temporary list, only after every entry is decrypted successfully, should they be transferred into PasswordManager.
+        List<PasswordEntry> decryptedEntries = new ArrayList<>();
+
+        for (EncryptedPasswordEntry entry : encryptedEntries) {
+            String decryptedPassword = encryptionManager.decrypt(entry.getPasswordCiphertext(), vaultKey, entry.getPasswordIv());
+            PasswordEntry decryptedEntry = new PasswordEntry(entry.getId(), entry.getServiceName(), entry.getUsername(), decryptedPassword);
+            decryptedEntries.add(decryptedEntry);
+        }
+
+        /* If an entry fails to decrypt, decrypt() throws a GeneralSecurityException.
+           Java immediately stops executing the method and propogates that exception to the caller. 
+           It never reaches the second loop. This loop executes only after the first loop finishes without throwing an exception. 
+           Then adds the entries to passwordManager. */
+        for (PasswordEntry tempEntry : decryptedEntries) {
+            passwordManager.addEntry(tempEntry);
+        }
+    }
+
     @Override
         public void start(Stage primaryStage) {
-            DatabaseManager.createTable();
-
-            List<PasswordEntry> loadSavedEntries = DatabaseManager.loadEntries();
-            for (PasswordEntry entry : loadSavedEntries) {
-                passwordManager.addEntry(entry);
-            }
         
        primaryStage.setTitle("Password Manager");
 
@@ -192,6 +217,159 @@ public class App extends Application {
         TextField searchField = new TextField();
         searchField.setPromptText("Search by Service Name or Username...");
         grid.add(searchField, 0, 7, 2, 1);
+
+       GridPane vaultPane = new GridPane();
+            vaultPane.setAlignment(Pos.CENTER);
+            vaultPane.setHgap(10);
+            vaultPane.setVgap(10);
+            vaultPane.setPadding(new Insets(25, 25, 25, 25));
+
+            // Pass Man - First time password setup screen
+            Label masterPasswordField = new Label("Master Password: ");
+            vaultPane.add(masterPasswordField, 0, 1);
+
+            PasswordField masterPassword = new PasswordField();
+            vaultPane.add(masterPassword, 1, 1);
+
+            Label confirmMasterPasswordField = new Label("Confirm Master Password");
+            vaultPane.add(confirmMasterPasswordField, 0, 2);
+
+            PasswordField confirmMasterPassword = new PasswordField();
+            vaultPane.add(confirmMasterPassword, 1, 2);
+
+            Button createVaultBtn = new Button("Create Vault");
+            vaultPane.add(createVaultBtn, 1, 3);
+
+            Text validation = new Text();
+            vaultPane.add(validation, 1, 4);
+
+            createVaultBtn.setOnAction(event -> {
+            if (masterPassword.getText().isBlank() || confirmMasterPassword.getText().isBlank()) {
+                validation.setFill(Color.RED);
+                validation.setText("Please fill out both fields.");
+            } else if (!confirmMasterPassword.getText().equals(masterPassword.getText())) {
+                validation.setFill(Color.RED);
+                validation.setText("Master passwords do not match.");
+            } else {
+
+                char[] masterpass = masterPassword.getText().toCharArray();
+
+                try {
+                    byte[] salt = encryptionManager.generateSalt();
+                    SecretKey key = encryptionManager.deriveKey(masterpass, salt);
+
+                    String verificationMessage = "PASSMAN_VAULT_VERIFIER";
+                    byte[] verifierIv = encryptionManager.generateIv();
+                    byte[] verifierCiphertext = encryptionManager.encrypt(verificationMessage, key, verifierIv);
+                    DatabaseManager.saveVaultMetadata(salt, verifierCiphertext, verifierIv);
+                    vaultKey = key;
+                    masterPassword.clear();
+                    confirmMasterPassword.clear();
+                    // If success messages do not appear, then delete the next two lines below.
+                    validation.setFill(Color.BLUE);
+                    validation.setText("Vault configuration saved successfully!");
+                    primaryStage.setScene(new Scene(grid, 600, 700));
+                    
+                } catch (GeneralSecurityException | SQLException e) {
+                    validation.setFill(Color.RED);
+                    validation.setText("Unable to initialize vault encryption.");
+                } finally {
+                    Arrays.fill(masterpass, '\0');
+                }
+            }
+        });
+
+        GridPane unlockPane = new GridPane();
+            unlockPane.setAlignment(Pos.CENTER);
+            unlockPane.setHgap(10);
+            unlockPane.setVgap(10);
+            unlockPane.setPadding(new Insets(25, 25, 25, 25));
+
+            Label unlockMasterPasswordLabel = new Label("Master Password: ");
+            unlockPane.add(unlockMasterPasswordLabel, 0, 1);
+
+            PasswordField unlockMasterPasswordField = new PasswordField();
+            unlockPane.add(unlockMasterPasswordField, 1, 1);
+
+            Button unlockButton = new Button("Unlock Vault");
+            unlockPane.add(unlockButton, 1, 2);
+
+            Text unlockText = new Text();
+            unlockPane.add(unlockText, 1, 3);
+
+            unlockButton.setOnAction(event -> {
+
+                if (unlockMasterPasswordField.getText().isBlank()) {
+                    unlockText.setFill(Color.RED);
+                    unlockText.setText("Please enter your master password.");
+                } else {
+
+                    char[] masterpass = unlockMasterPasswordField.getText().toCharArray();
+
+                    try {
+                        VaultMetadata metadata = DatabaseManager.loadVaultMetadata();
+
+                        if (metadata == null) {
+                            unlockText.setFill(Color.RED);
+                            unlockText.setText("Vault configuration not found.");
+                            return;
+                        } else {
+                            
+                            byte[] salt = metadata.getSalt();
+                            SecretKey key = encryptionManager.deriveKey(masterpass, salt);
+                            byte[] verifierCiphertext = metadata.getVerifierCiphertext();
+                            byte[] verifierIv = metadata.getVerifierIv();
+                            String decryptedVerifier = encryptionManager.decrypt(verifierCiphertext, key, verifierIv);
+
+                            if (decryptedVerifier.equals("PASSMAN_VAULT_VERIFIER")) {
+                                vaultKey = key;
+                                // try/catch, additionally ensures that the application doesn't remain in an unlocked state if decryption fails midway through.
+                                try {
+                                    loadDecryptedEntries();
+                                    unlockMasterPasswordField.clear();
+                                    unlockText.setFill(Color.BLUE);
+                                    // If the success message does not appear before the scene changes to the main vault screen, 
+                                    // we can remove the message below.
+                                    unlockText.setText("Vault unlocked successfully!");
+                                    primaryStage.setScene(new Scene(grid, 600, 700));
+                                } catch (GeneralSecurityException | SQLException e) {
+                                    vaultKey = null;
+                                    unlockText.setFill(Color.RED);
+                                    unlockText.setText("VAULT-DATA LOADING ERROR: Unable to load saved password entries.");
+                                }
+                            } else {
+                                unlockText.setFill(Color.RED);
+                                unlockText.setText("Vault verification failed.");
+                            }
+                        }
+                    } catch (AEADBadTagException e) {
+
+                        unlockText.setFill(Color.RED);
+                        unlockText.setText("Unable to verify master password.");
+
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+            
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Database ERROR");
+                        alert.setHeaderText("Unable to unlock the vault.");
+                        alert.setContentText("Please check the database and try again..");
+                        alert.showAndWait();
+
+                    } catch (GeneralSecurityException e) {
+                        e.printStackTrace();
+
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Encryption Error");
+                        alert.setHeaderText("Unable to unlock the vault.");
+                        alert.setContentText("An unexpected cryptographic error occured.");
+                        alert.showAndWait();
+
+                    } finally {
+                        Arrays.fill(masterpass, '\0');
+                    }
+                }
+            });
 
         // FilteredList and entryListView.setItems() is taken out of searchField.textProperty() so that it doesn't create a new FilteredList object with every keystroke.
         FilteredList<PasswordEntry> filteredEntries = new FilteredList<>(passwordManager.getEntries(), entry -> true);
@@ -392,15 +570,25 @@ public class App extends Application {
                     actiontarget.setText("Please fill out all fields.");
                 } else {
                     PasswordEntry entry = new PasswordEntry(serviceNameField.getText(), usernameField.getText(), passwordBox.getText());
-                    passwordManager.addEntry(entry);
-                    // Insert the entry into the SQLite database using DatabaseManager
-                    DatabaseManager.insertEntry(entry);
-                    actiontarget.setFill(Color.BLUE);
-                    actiontarget.setText("Entry Added!");
+                    byte[] iv = encryptionManager.generateIv();
+                    try {
+                        byte[] ciphertext = encryptionManager.encrypt(entry.getPassword(), vaultKey, iv);
+                        DatabaseManager.insertEntry(entry, ciphertext, iv);
 
-                    serviceNameField.clear();
-                    usernameField.clear();
-                    passwordBox.clear();
+                        // Only executes these operations if the database insertion is successful.
+                        passwordManager.addEntry(entry);
+                        // Insert the entry into the SQLite database using DatabaseManager
+                        actiontarget.setFill(Color.BLUE);
+                        actiontarget.setText("Entry Added!");
+
+                        serviceNameField.clear();
+                        usernameField.clear();
+                        passwordBox.clear();
+                    } catch (GeneralSecurityException | SQLException e) {
+                        actiontarget.setFill(Color.RED);
+                        actiontarget.setText("Failed to insert entry into database.");
+                        e.printStackTrace();
+                    }
                 }
         });
 
@@ -445,8 +633,34 @@ public class App extends Application {
             }
         });
 
-        Scene scene = new Scene(grid, 600, 700);
+        try {
+            DatabaseManager.createTable();
+            DatabaseManager.createVaultMetadataTable();
+            VaultMetadata metadata = DatabaseManager.loadVaultMetadata();
+
+            if (metadata != null) {
+                Scene unlockScene = new Scene(unlockPane, 600, 700);
+                primaryStage.setScene(unlockScene);
+            } else {
+                Scene createVault = new Scene(vaultPane, 600, 700);
+                primaryStage.setScene(createVault);
+            }
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+            
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Database ERROR");
+            alert.setHeaderText("Unable to initialize the vault.");
+            alert.setContentText("Please check the database and try again..");
+            alert.showAndWait();
+
+            return;
+        }
+
+        /*Scene scene = new Scene(grid, 600, 700);
         primaryStage.setScene(scene);
+        */
 
        primaryStage.show();
     }
