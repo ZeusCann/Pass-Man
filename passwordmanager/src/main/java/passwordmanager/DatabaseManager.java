@@ -139,15 +139,16 @@ public class DatabaseManager {
             }
     }
 
-    public static boolean updateEntry(PasswordEntry entry) {
-        String sql = "UPDATE password_entries SET service_name = ?, username = ?, password = ? WHERE id = ?;";
+    public static boolean updateEntry(PasswordEntry entry, byte[] ciphertext, byte[] iv) {
+        String sql = "UPDATE password_entries SET service_name = ?, username = ?, password_ciphertext = ?, password_iv = ? WHERE id = ?;";
 
         try (Connection connection = getConnection();
             PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setString(1, entry.getServiceName());
                 statement.setString(2, entry.getUsername());
-                statement.setString(3, entry.getPassword());
-                statement.setInt(4, entry.getId());
+                statement.setBytes(3, ciphertext);
+                statement.setBytes(4, iv);
+                statement.setInt(5, entry.getId());
                 int rowsUpdated = statement.executeUpdate();
                 return rowsUpdated > 0;
 
